@@ -112,30 +112,66 @@ def decodeTextFile(filePath, outputFilePath = '/'):
 
 	fileBytes = bfileReader.read()
 
-	byteReader = False
+	bitsReader = False
 	charStream = b''
-	byteStream = b''
+	binStream = ''
 	decoded = ''
+	bits = ''
+	bitsLeft = 0
 	for b in fileBytes:
 		byte = b.to_bytes(1, 'big')
-		char = chr(b)
-		if char == SO:
-			#if not charStream:
-			decoded += charStream.decode(errors='strict')
-			byteReader = True
-			charStream = b''
-			continue
-		elif char == SI:
-			decodedBytes = decodeByteStream(byteStream, dict)
-			decoded += decodedBytes
-			byteStream = b''
-			byteReader = False
-			continue
 
-		if not byteReader:
-			charStream += byte
-		else:
-			byteStream += byte
+		if bitsReader:
+			bits += BitArray(byte).bin
+			if bitsLeft == 0:
+				if bits[0:4] == '0000':
+					bits = ''
+					bitsReader = False
+
+	#					bits += '0000'
+	#nullsToByte = 0 if (len(bits) % 8) == 0 else 8 - (len(bits) % 8)
+	#bits += '0' * nullsToByte
+	#bytesCount = len(bits) // 8
+					#t = len(binStream) + 4
+					#continue
+				else:
+					size = int(bits[0:4], 2)
+					binStream += bits[0:4]
+					bits = bits[4:]
+					bitsLeft = size if size < 14 else 18
+			else:
+				#if bitsLeft == len(bits):
+				#	binStream += bits
+				#	bitsLeft = 0
+				#	bits = ''
+				if bitsLeft < len(bits):
+					binStream += bits[0:bitsLeft]
+					bits = bits[bitsLeft:]
+					bitsLeft = 0
+				else:
+					binStream += bits
+					bitsLeft -= len(bits)
+					bits = ''
+
+		if not bitsReader:
+			char = chr(b)
+			if char == SO:
+				#if not charStream:
+				decodedChars = charStream.decode(errors='ignore')
+				print('c: ' + decodedChars)
+				decoded += decodedChars
+				bitsReader = True
+				charStream = b''
+				continue
+			elif char == SI:
+				decodedBits = decodeBinStream(binStream, dict)
+				print('b: ' + decodedBits)
+				decoded += decodedBits
+				binStream = ''
+				bitsReader = False
+				continue
+			else:
+				charStream += byte
 
 	decodedFile = open(outputFilePath, "w", encoding="utf-8")
 	decodedFile.write(decoded)
@@ -143,17 +179,16 @@ def decodeTextFile(filePath, outputFilePath = '/'):
 	print("File was decompressed.")
 
 
-def decodeByteStream(byteStream, dict):
-	bits = BitArray(byteStream).bin
+def decodeBinStream(binStream, dict):
 	result = ''
-	while len(bits) > 0:
-		if bits[0:4] == '1111':
+	while len(binStream) > 0:
+		if binStream[0:4] == '1111':
 			size = 18
 		else:
-			size = int(bits[0:4], 2)
-		bits = bits[4:]
-		num = bits[0:size]
-		bits = bits[size:]
+			size = int(binStream[0:4], 2)
+		binStream = binStream[4:]
+		num = binStream[0:size]
+		binStream = binStream[size:]
 
 		if len(num) == 0:
 			return result
@@ -180,6 +215,9 @@ def getNgramDict():
 	return dict
 
 def convertBitsToBytes(bits):
-	nullsToByte = 8 - len(bits) % 8
+	#End of stream
+	bits += '0000'
+	nullsToByte = 0 if (len(bits) % 8) == 0 else 8 - (len(bits) % 8)
 	bits += '0' * nullsToByte
-	return int(bits, 2).to_bytes(len(bits) // 8, byteorder='big')
+	bytesCount = len(bits) // 8
+	return int(bits, 2).to_bytes(bytesCount, byteorder='big')
