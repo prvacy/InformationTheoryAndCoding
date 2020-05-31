@@ -111,57 +111,40 @@ def decodeTextFile(filePath, outputFilePath = '/'):
 
 
 	fileBytes = bfileReader.read()
+	fileBits = BitArray(fileBytes).bin
 
 	bitsReader = False
-	charStream = b''
+	charStream = ''
 	binStream = ''
 	decoded = ''
-	bits = ''
-	bitsLeft = 0
-	for b in fileBytes:
-		byte = b.to_bytes(1, 'big')
+	while len(fileBits) > 0:
+		#byte = fileBits[:4]
+		#fileBits = fileBits[4:]
 
 		if bitsReader:
-			bits += BitArray(byte).bin
-			if bitsLeft == 0:
-				if bits[0:4] == '0000':
-					bits = ''
-					bitsReader = False
-
-	#					bits += '0000'
-	#nullsToByte = 0 if (len(bits) % 8) == 0 else 8 - (len(bits) % 8)
-	#bits += '0' * nullsToByte
-	#bytesCount = len(bits) // 8
-					#t = len(binStream) + 4
-					#continue
-				else:
-					size = int(bits[0:4], 2)
-					binStream += bits[0:4]
-					bits = bits[4:]
-					bitsLeft = size if size < 14 else 18
+			firstBits = fileBits[:4]
+			fileBits = fileBits[4:]
+			if firstBits == '0000':
+				bStreamLen = len(binStream) + 4
+				skip = 0 if bStreamLen % 8 == 0 else 8 - (bStreamLen % 8)
+				fileBits = fileBits[:skip]
+				bitsReader = False
 			else:
-				#if bitsLeft == len(bits):
-				#	binStream += bits
-				#	bitsLeft = 0
-				#	bits = ''
-				if bitsLeft < len(bits):
-					binStream += bits[0:bitsLeft]
-					bits = bits[bitsLeft:]
-					bitsLeft = 0
-				else:
-					binStream += bits
-					bitsLeft -= len(bits)
-					bits = ''
+				size = int(firstBits, 2)
+				binStream += firstBits + fileBits[:size]
+				fileBits = fileBits[size:]
+		else:
+			char = chr(int(fileBits[:8], 2))
+			bin = fileBits[:8]
+			fileBits = fileBits[8:]
 
-		if not bitsReader:
-			char = chr(b)
 			if char == SO:
-				#if not charStream:
-				decodedChars = charStream.decode(errors='ignore')
+				charStreamHex = BitArray(bin=charStream).bytes
+				decodedChars = charStreamHex.decode(errors='ignore')
 				print('c: ' + decodedChars)
 				decoded += decodedChars
 				bitsReader = True
-				charStream = b''
+				charStream = ''
 				continue
 			elif char == SI:
 				decodedBits = decodeBinStream(binStream, dict)
@@ -171,7 +154,8 @@ def decodeTextFile(filePath, outputFilePath = '/'):
 				bitsReader = False
 				continue
 			else:
-				charStream += byte
+				charStream += bin
+
 
 	decodedFile = open(outputFilePath, "w", encoding="utf-8")
 	decodedFile.write(decoded)
