@@ -53,6 +53,10 @@ def encodeTextFile(filePath, outputFilePath = '/'):
 			elif (word not in dict) and not shiftOut:
 				words.append(word) #just append word
 
+		#if end of line and still shiftOut
+		if shiftOut:
+			words.append(SI)
+
 
 		byteWriter = False #write unicode(default)
 		bitStream = ''
@@ -127,10 +131,10 @@ def decodeTextFile(filePath, outputFilePath = '/'):
 			if firstBits == '0000':
 				bStreamLen = len(binStream) + 4
 				skip = 0 if bStreamLen % 8 == 0 else 8 - (bStreamLen % 8)
-				fileBits = fileBits[:skip]
+				fileBits = fileBits[skip:]
 				bitsReader = False
-			else:
-				size = int(firstBits, 2)
+			else:				
+				size = 18 if firstBits == '1111' else int(firstBits, 2)
 				binStream += firstBits + fileBits[:size]
 				fileBits = fileBits[size:]
 		else:
@@ -140,7 +144,7 @@ def decodeTextFile(filePath, outputFilePath = '/'):
 
 			if char == SO:
 				charStreamHex = BitArray(bin=charStream).bytes
-				decodedChars = charStreamHex.decode(errors='ignore')
+				decodedChars = charStreamHex.decode(errors='strict')
 				print('c: ' + decodedChars)
 				decoded += decodedChars
 				bitsReader = True
