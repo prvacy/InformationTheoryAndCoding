@@ -56,6 +56,7 @@ def encodeTextFile(filePath, outputFilePath = '/'):
 		#if end of line and still shiftOut
 		if shiftOut:
 			words.append(SI)
+			shiftOut = False
 
 
 		byteWriter = False #write unicode(default)
@@ -159,6 +160,12 @@ def decodeTextFile(filePath, outputFilePath = '/'):
 				continue
 			else:
 				charStream += bin
+
+	if len(charStream) > 0:
+		charStreamHex = BitArray(bin=charStream).bytes
+		decodedChars = charStreamHex.decode(errors='strict')
+		print('c: ' + decodedChars)
+		decoded += decodedChars
 
 
 	decodedFile = open(outputFilePath, "w", encoding="utf-8")
