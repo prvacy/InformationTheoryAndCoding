@@ -3,7 +3,7 @@ import os
 from bitstring import BitArray
 
 
-def encodeTextFile(filePath, outputFilePath = '/'):
+def encodeTextFile(filePath, outputFilePath='/'):
 	if outputFilePath == '/':
 	    outputFilePath = os.path.splitext(filePath)[0] + '.nga'
 
@@ -40,6 +40,7 @@ def encodeTextFile(filePath, outputFilePath = '/'):
 
 		for word in nWords:
 			if (word in dict) and not shiftOut:
+				#words.append(' ')
 				words.append(SO) #append SO and dict value
 				words.append(dict[word]) 
 				shiftOut = True
@@ -48,15 +49,22 @@ def encodeTextFile(filePath, outputFilePath = '/'):
 
 			elif (word not in dict) and shiftOut:
 				words.append(SI) #add SI to word and append
-				words.append(word) 
+				words.append(word + ' ') 
 				shiftOut = False
 			elif (word not in dict) and not shiftOut:
-				words.append(word) #just append word
+				words.append(word + ' ') #just append word
+				if word in [',', '.']:
+					words[-2] = words[-2][0:-1]
+
 
 		#if end of line and still shiftOut
 		if shiftOut:
 			words.append(SI)
 			shiftOut = False
+
+
+		words.append('\n')
+
 
 
 		byteWriter = False #write unicode(default)
@@ -69,7 +77,7 @@ def encodeTextFile(filePath, outputFilePath = '/'):
 				bfile.write(word.encode())
 				continue
 			elif word == SI:
-				byteWriter = False #activate utf-8 writer	
+				byteWriter = False #activate utf-8 writer
 				#TODO: split bitStream to bytes and write bytes
 				bytesToWrite = convertBitsToBytes(bitStream)
 
@@ -83,13 +91,13 @@ def encodeTextFile(filePath, outputFilePath = '/'):
 				#write utf-8 word + ' '
 				#if word in [',', '.']:
 				#    bfile.write('\b'.encode())
-				bfile.write(word.encode())#TODO: SPACE CHARACTER CHECK! (word + ' ')
+				bfile.write(word.encode())#TODO: SPACE CHARACTER CHECK!  (word + ' ')
 			else:
 				binNum = str(bin(word))[2:] #word to bin
 				numLen = len(binNum)
 				lenBits = ''
 				if numLen < 14:
-					bitsCount = len(str(bin(numLen))[2:]) #length of number length in bits 
+					bitsCount = len(str(bin(numLen))[2:]) #length of number length in bits
 					# This is the first 4 bits to identify number length (0001 - 1110)
 					lenBits = '0' * (4 - bitsCount)
 					lenBits += str(bin(numLen))[2:]
@@ -103,7 +111,7 @@ def encodeTextFile(filePath, outputFilePath = '/'):
 				bitStream += binNum
 	print("File was compressed.")
 
-def decodeTextFile(filePath, outputFilePath = '/'):
+def decodeTextFile(filePath, outputFilePath='/'):
 	if outputFilePath == '/':
 	    outputFilePath = os.path.splitext(filePath)[0] + '.txt'
 
@@ -123,6 +131,7 @@ def decodeTextFile(filePath, outputFilePath = '/'):
 	binStream = ''
 	decoded = ''
 	while len(fileBits) > 0:
+		t = len(fileBits)
 		#byte = fileBits[:4]
 		#fileBits = fileBits[4:]
 
@@ -146,17 +155,23 @@ def decodeTextFile(filePath, outputFilePath = '/'):
 			if char == SO:
 				charStreamHex = BitArray(bin=charStream).bytes
 				decodedChars = charStreamHex.decode(errors='strict')
-				print('c: ' + decodedChars)
+				#print('c: ' + decodedChars)
+				#TODO: implement logger
 				decoded += decodedChars
 				bitsReader = True
 				charStream = ''
 				continue
 			elif char == SI:
 				decodedBits = decodeBinStream(binStream, dict)
-				print('b: ' + decodedBits)
+				#print('b: ' + decodedBits)
+				#TODO: implement logger
 				decoded += decodedBits
 				binStream = ''
 				bitsReader = False
+				
+				nextChar = chr(int(fileBits[:8], 2))
+				if nextChar in [',', '.']:
+					decoded = decoded[:-1]
 				continue
 			else:
 				charStream += bin
@@ -164,10 +179,12 @@ def decodeTextFile(filePath, outputFilePath = '/'):
 	if len(charStream) > 0:
 		charStreamHex = BitArray(bin=charStream).bytes
 		decodedChars = charStreamHex.decode(errors='strict')
-		print('c: ' + decodedChars)
+		#print('c: ' + decodedChars)
+		#TODO: implement logger
 		decoded += decodedChars
 
-
+	decoded = ''.join([line.rstrip() + '\n' for line in decoded.splitlines()])
+	decoded = decoded[:-1]#delete newline
 	decodedFile = open(outputFilePath, "w", encoding="utf-8")
 	decodedFile.write(decoded)
 	#print(decoded)
@@ -190,7 +207,9 @@ def decodeBinStream(binStream, dict):
 		value = int(num, 2)
 		try:
 			key = list(dict.keys())[list(dict.values()).index(value)]
+			
 			result += key 
+			result += ' '
 		except:
 			result += ''
 			pass
@@ -198,7 +217,7 @@ def decodeBinStream(binStream, dict):
 	
 
 def getNgramDict():
-	file = open("C:/Users/danil/Downloads/ua_corpus/ua_google.txt", "r", encoding="utf8")
+	file = open("./dict.txt", "r", encoding="utf8")
 	lines = file.readlines()
 	dict = {}
 	i = 0
